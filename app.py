@@ -696,6 +696,69 @@ def device_admin_view(store: MongoStore) -> None:
         )
     safe_dataframe(table, "暂无设备台账。")
 
+    device_options = label_map(devices)
+    lab_options = label_map(labs)
+
+    st.markdown("#### 编辑设备")
+    if not devices:
+        st.info("暂无可编辑的设备。")
+    elif not labs:
+        st.warning("暂无实验室数据，无法编辑设备所属实验室。请先维护实验室。")
+    else:
+        edit_device_label = st.selectbox("选择要编辑的设备", list(device_options.keys()), key="edit_device_select")
+        selected_device = device_options[edit_device_label]
+        selected_lab_id = str(selected_device.get("lab_id"))
+        lab_labels = list(lab_options.keys())
+        current_lab_index = next(
+            (idx for idx, label in enumerate(lab_labels) if lab_options[label]["id"] == selected_lab_id),
+            0,
+        )
+        device_key = selected_device["id"]
+        with st.form(f"edit_device_form_{device_key}"):
+            edit_name = st.text_input("设备名称", value=selected_device.get("name", ""), key=f"edit_device_name_{device_key}")
+            edit_type = st.text_input("设备类型", value=selected_device.get("type", ""), key=f"edit_device_type_{device_key}")
+            edit_lab_label = st.selectbox(
+                "所属实验室",
+                lab_labels,
+                index=current_lab_index,
+                key=f"edit_device_lab_{device_key}",
+            )
+            edit_status = st.selectbox(
+                "设备状态",
+                DEVICE_STATUSES,
+                index=DEVICE_STATUSES.index(selected_device.get("status", "可用"))
+                if selected_device.get("status") in DEVICE_STATUSES
+                else 0,
+                key=f"edit_device_status_{device_key}",
+            )
+            edit_shareable = st.checkbox(
+                "可共享设备",
+                value=bool(selected_device.get("shareable")),
+                key=f"edit_device_shareable_{device_key}",
+            )
+            edit_owner = st.text_input("责任人", value=selected_device.get("owner", ""), key=f"edit_device_owner_{device_key}")
+            edit_notes = st.text_area("备注", value=selected_device.get("notes", ""), key=f"edit_device_notes_{device_key}")
+            if st.form_submit_button("保存设备修改", use_container_width=True):
+                if not edit_name.strip():
+                    st.error("请填写设备名称。")
+                else:
+                    store.devices().update_one(
+                        {"_id": object_id(selected_device["id"])},
+                        {
+                            "$set": {
+                                "name": edit_name.strip(),
+                                "type": edit_type.strip(),
+                                "lab_id": object_id(lab_options[edit_lab_label]["id"]),
+                                "status": edit_status,
+                                "shareable": edit_shareable,
+                                "owner": edit_owner.strip(),
+                                "notes": edit_notes.strip(),
+                            }
+                        },
+                    )
+                    st.success("设备信息已更新。")
+                    rerun()
+
     st.markdown("#### Excel 导入设备台账")
     st.caption("字段：设备名称、设备类型、所属实验室、状态、是否可共享、责任人、备注。所属实验室必须与实验室管理中的名称一致。")
     upload = st.file_uploader("上传设备台账 Excel", type=["xlsx", "xls"], key="device_import")
@@ -741,33 +804,35 @@ def device_admin_view(store: MongoStore) -> None:
         except Exception as exc:
             st.error(f"设备台账导入失败：{exc}")
 
-    lab_options = label_map(labs)
-    with st.form("device_form"):
-        st.markdown("#### 新增 / 登记设备")
-        name = st.text_input("设备名称")
-        device_type = st.text_input("设备类型", value="机器人")
-        lab_label = st.selectbox("所属实验室", list(lab_options.keys()))
-        status = st.selectbox("设备状态", DEVICE_STATUSES)
-        shareable = st.checkbox("可共享设备")
-        owner = st.text_input("责任人")
-        notes = st.text_area("备注")
-        if st.form_submit_button("保存设备"):
-            if not name:
-                st.error("请填写设备名称。")
-            else:
-                store.devices().insert_one(
-                    {
-                        "name": name,
-                        "type": device_type,
-                        "lab_id": object_id(lab_options[lab_label]["id"]),
-                        "status": status,
-                        "shareable": shareable,
-                        "owner": owner,
-                        "notes": notes,
-                    }
-                )
-                st.success("设备已保存。")
-                rerun()
+    if not labs:
+        st.info("请先在实验室页面新增实验室，再登记设备。")
+    else:
+        with st.form("device_form"):
+            st.markdown("#### 新增 / 登记设备")
+            name = st.text_input("设备名称")
+            device_type = st.text_input("设备类型", value="机器人")
+            lab_label = st.selectbox("所属实验室", list(lab_options.keys()))
+            status = st.selectbox("设备状态", DEVICE_STATUSES)
+            shareable = st.checkbox("可共享设备")
+            owner = st.text_input("责任人")
+            notes = st.text_area("备注")
+            if st.form_submit_button("保存设备"):
+                if not name:
+                    st.error("请填写设备名称。")
+                else:
+                    store.devices().insert_one(
+                        {
+                            "name": name,
+                            "type": device_type,
+                            "lab_id": object_id(lab_options[lab_label]["id"]),
+                            "status": status,
+                            "shareable": shareable,
+                            "owner": owner,
+                            "notes": notes,
+                        }
+                    )
+                    st.success("设备已保存。")
+                    rerun()
 
     st.markdown("#### 状态更新")
     if devices:
@@ -778,6 +843,39 @@ def device_admin_view(store: MongoStore) -> None:
             store.devices().update_one({"_id": object_id(device_options[target_label]["id"])}, {"$set": {"status": new_status}})
             st.success("设备状态已更新。")
             rerun()
+
+    st.markdown("#### 删除设备")
+    if not devices:
+        st.info("暂无可删除的设备。")
+    else:
+        delete_device_label = st.selectbox("选择要删除的设备", list(device_options.keys()), key="delete_device_select")
+        selected_delete_device = device_options[delete_device_label]
+        selected_device_id = object_id(selected_delete_device["id"])
+        references = {
+            "预约": store.reservations().count_documents({"device_id": selected_device_id}),
+            "报修": store.repair_reports().count_documents({"device_id": selected_device_id}),
+            "维护日志": store.maintenance_logs().count_documents({"device_id": selected_device_id}),
+        }
+        active_references = {name: count for name, count in references.items() if count}
+        if active_references:
+            st.warning(
+                "该设备已有业务数据，暂不能直接删除："
+                + "，".join(f"{name} {count} 条" for name, count in active_references.items())
+                + "。如设备不再使用，建议将状态改为“停用”，以保留历史记录。"
+            )
+        else:
+            st.caption("该设备暂无预约、报修或维护日志，可以删除。")
+            confirm_delete = st.checkbox(
+                f"确认删除设备：{selected_delete_device.get('name', '')}",
+                key=f"confirm_delete_device_{selected_delete_device['id']}",
+            )
+            if st.button("删除设备", type="primary", use_container_width=True, disabled=not confirm_delete):
+                result = store.devices().delete_one({"_id": selected_device_id})
+                if result.deleted_count:
+                    st.success("设备已删除。")
+                    rerun()
+                else:
+                    st.error("删除失败：未找到该设备。")
 
 
 def device_status_table(devices: list[dict], labs: list[dict]) -> pd.DataFrame:
