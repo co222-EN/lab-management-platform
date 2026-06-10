@@ -589,6 +589,43 @@ def lab_admin_view(store: MongoStore) -> None:
                 st.success("实验室已保存。")
                 rerun()
 
+    st.markdown("#### 删除实验室")
+    if not labs:
+        st.info("暂无可删除的实验室。")
+        return
+
+    lab_options = label_map(labs)
+    delete_label = st.selectbox("选择要删除的实验室", list(lab_options.keys()), key="delete_lab_select")
+    selected_lab = lab_options[delete_label]
+    selected_lab_id = object_id(selected_lab["id"])
+    references = {
+        "设备": store.devices().count_documents({"lab_id": selected_lab_id}),
+        "课表": store.schedules().count_documents({"lab_id": selected_lab_id}),
+        "预约": store.reservations().count_documents({"lab_id": selected_lab_id}),
+        "报修": store.repair_reports().count_documents({"lab_id": selected_lab_id}),
+    }
+    active_references = {name: count for name, count in references.items() if count}
+
+    if active_references:
+        st.warning(
+            "该实验室已有业务数据，暂不能直接删除："
+            + "，".join(f"{name} {count} 条" for name, count in active_references.items())
+            + "。请先处理或保留该实验室，以免历史记录失去归属。"
+        )
+    else:
+        st.caption("该实验室暂无关联设备、课表、预约或报修记录，可以删除。")
+        confirm_delete = st.checkbox(
+            f"确认删除实验室：{selected_lab.get('name', '')}",
+            key=f"confirm_delete_lab_{selected_lab['id']}",
+        )
+        if st.button("删除实验室", type="primary", use_container_width=True, disabled=not confirm_delete):
+            result = store.labs().delete_one({"_id": selected_lab_id})
+            if result.deleted_count:
+                st.success("实验室已删除。")
+                rerun()
+            else:
+                st.error("删除失败：未找到该实验室。")
+
 
 def device_admin_view(store: MongoStore) -> None:
     st.subheader("设备台账")
