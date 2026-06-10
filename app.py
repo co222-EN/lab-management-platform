@@ -562,6 +562,55 @@ def lab_admin_view(store: MongoStore) -> None:
     labs = load_labs(store)
     safe_dataframe(pd.DataFrame(labs).drop(columns=["id"], errors="ignore"), "暂无实验室。")
 
+    lab_options = label_map(labs)
+    st.markdown("#### 编辑实验室")
+    if not labs:
+        st.info("暂无可编辑的实验室，请先新增实验室。")
+    else:
+        edit_label = st.selectbox("选择要编辑的实验室", list(lab_options.keys()), key="edit_lab_select")
+        selected_lab = lab_options[edit_label]
+        with st.form("edit_lab_form"):
+            edit_name = st.text_input("实验室名称", value=selected_lab.get("name", ""), key="edit_lab_name")
+            edit_location = st.text_input("位置", value=selected_lab.get("location", ""), key="edit_lab_location")
+            edit_capacity = st.number_input(
+                "容量",
+                min_value=1,
+                value=int(selected_lab.get("capacity") or 1),
+                key="edit_lab_capacity",
+            )
+            edit_open_start = st.text_input(
+                "开放开始",
+                value=selected_lab.get("open_start", "08:00"),
+                key="edit_lab_open_start",
+            )
+            edit_open_end = st.text_input(
+                "开放结束",
+                value=selected_lab.get("open_end", "21:00"),
+                key="edit_lab_open_end",
+            )
+            edit_manager = st.text_input("管理员", value=selected_lab.get("manager", ""), key="edit_lab_manager")
+            edit_description = st.text_area("说明", value=selected_lab.get("description", ""), key="edit_lab_description")
+            if st.form_submit_button("保存修改", use_container_width=True):
+                if not edit_name.strip():
+                    st.error("请填写实验室名称。")
+                else:
+                    store.labs().update_one(
+                        {"_id": object_id(selected_lab["id"])},
+                        {
+                            "$set": {
+                                "name": edit_name.strip(),
+                                "location": edit_location.strip(),
+                                "capacity": int(edit_capacity),
+                                "open_start": edit_open_start.strip() or "08:00",
+                                "open_end": edit_open_end.strip() or "21:00",
+                                "manager": edit_manager.strip(),
+                                "description": edit_description.strip(),
+                            }
+                        },
+                    )
+                    st.success("实验室信息已更新。")
+                    rerun()
+
     with st.form("lab_form"):
         st.markdown("#### 新增实验室")
         name = st.text_input("实验室名称")
@@ -594,7 +643,6 @@ def lab_admin_view(store: MongoStore) -> None:
         st.info("暂无可删除的实验室。")
         return
 
-    lab_options = label_map(labs)
     delete_label = st.selectbox("选择要删除的实验室", list(lab_options.keys()), key="delete_lab_select")
     selected_lab = lab_options[delete_label]
     selected_lab_id = object_id(selected_lab["id"])
