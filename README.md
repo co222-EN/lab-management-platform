@@ -81,6 +81,8 @@ pip install -r requirements.txt
 python seed_data.py
 ```
 
+初始化只通过脚本完成，公网登录页不提供初始化按钮，也不展示默认账号。
+
 4. 启动平台：
 
 ```powershell

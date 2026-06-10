@@ -31,7 +31,6 @@ from lab_platform.schedule_import import (
     section_times_from_strings,
 )
 from lab_platform.security import hash_password, verify_password
-from seed_data import seed_database
 
 
 OPEN_RECORD_TEMPLATE = Path("templates/开放记录导出模板.xlsx")
@@ -99,7 +98,10 @@ def safe_store() -> MongoStore | None:
         return get_store()
     except Exception as exc:  # Streamlit should show a clear MongoDB failure instead of fake data.
         st.error(connection_error_message(exc))
-        st.info("请先启动 MongoDB，或在 `.env` / 环境变量中设置 `MONGODB_URI`。")
+        st.info(
+            "本地运行请启动 MongoDB 或设置 `.env`；Streamlit Cloud 运行请在 App Settings -> Secrets "
+            "中设置 `MONGODB_URI` 和 `MONGODB_DB`，保存后 Reboot app。"
+        )
         return None
 
 
@@ -233,12 +235,12 @@ def render_header(user: dict | None) -> None:
 
 def login_view(store: MongoStore) -> None:
     render_header(None)
-    col_login, col_seed = st.columns([1.1, 0.9], gap="large")
-
-    with col_login:
+    left, center, right = st.columns([1, 1.2, 1])
+    with center:
         st.subheader("账号登录")
+        st.caption("跨实验室预约、设备报修与开放记录管理")
         with st.form("login_form"):
-            username = st.text_input("账号", value="admin")
+            username = st.text_input("账号")
             password = st.text_input("密码", type="password")
             submitted = st.form_submit_button("登录", use_container_width=True)
         if submitted:
@@ -247,26 +249,6 @@ def login_view(store: MongoStore) -> None:
                 st.session_state["user"] = user
                 rerun()
             st.error("账号或密码不正确。")
-
-    with col_seed:
-        st.subheader("演示数据")
-        st.write("首次运行时，请先写入实验室、设备、课表、预约和用户样例。")
-        st.table(
-            pd.DataFrame(
-                [
-                    {"角色": "管理员", "账号": "admin", "密码": "admin123"},
-                    {"角色": "教师", "账号": "teacher_xun", "密码": "teacher123"},
-                    {"角色": "学生", "账号": "student_li", "密码": "student123"},
-                ]
-            )
-        )
-        if st.button("初始化演示数据", use_container_width=True):
-            try:
-                seed_database()
-                st.success("演示数据已初始化。")
-                get_store.clear()
-            except Exception as exc:
-                st.error(connection_error_message(exc))
 
 
 def reservation_form(store: MongoStore, user: dict, title: str) -> None:
