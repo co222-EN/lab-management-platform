@@ -569,27 +569,28 @@ def lab_admin_view(store: MongoStore) -> None:
     else:
         edit_label = st.selectbox("选择要编辑的实验室", list(lab_options.keys()), key="edit_lab_select")
         selected_lab = lab_options[edit_label]
-        with st.form("edit_lab_form"):
-            edit_name = st.text_input("实验室名称", value=selected_lab.get("name", ""), key="edit_lab_name")
-            edit_location = st.text_input("位置", value=selected_lab.get("location", ""), key="edit_lab_location")
+        edit_key = selected_lab["id"]
+        with st.form(f"edit_lab_form_{edit_key}"):
+            edit_name = st.text_input("实验室名称", value=selected_lab.get("name", ""), key=f"edit_lab_name_{edit_key}")
+            edit_location = st.text_input("位置", value=selected_lab.get("location", ""), key=f"edit_lab_location_{edit_key}")
             edit_capacity = st.number_input(
                 "容量",
                 min_value=1,
                 value=int(selected_lab.get("capacity") or 1),
-                key="edit_lab_capacity",
+                key=f"edit_lab_capacity_{edit_key}",
             )
             edit_open_start = st.text_input(
                 "开放开始",
                 value=selected_lab.get("open_start", "08:00"),
-                key="edit_lab_open_start",
+                key=f"edit_lab_open_start_{edit_key}",
             )
             edit_open_end = st.text_input(
                 "开放结束",
                 value=selected_lab.get("open_end", "21:00"),
-                key="edit_lab_open_end",
+                key=f"edit_lab_open_end_{edit_key}",
             )
-            edit_manager = st.text_input("管理员", value=selected_lab.get("manager", ""), key="edit_lab_manager")
-            edit_description = st.text_area("说明", value=selected_lab.get("description", ""), key="edit_lab_description")
+            edit_manager = st.text_input("管理员", value=selected_lab.get("manager", ""), key=f"edit_lab_manager_{edit_key}")
+            edit_description = st.text_area("说明", value=selected_lab.get("description", ""), key=f"edit_lab_description_{edit_key}")
             if st.form_submit_button("保存修改", use_container_width=True):
                 if not edit_name.strip():
                     st.error("请填写实验室名称。")
