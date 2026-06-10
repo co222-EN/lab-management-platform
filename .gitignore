@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# Local environment and secrets
+.env
+.streamlit/secrets.toml
+
+# Local MongoDB runtime data
+mongodb/
+mongodb-data/
+mongodb-log/
+mongodb-windows-x86_64-*.zip
+
+# Local logs and generated packages
+*.log
+dist/
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
