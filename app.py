@@ -556,6 +556,34 @@ def reservations_admin_view(store: MongoStore) -> None:
             st.success("已标记完成。")
             rerun()
 
+    st.markdown("#### 删除预约记录")
+    if not rows:
+        st.info("暂无可删除的预约记录。")
+        return
+
+    delete_options = {
+        f"{item.get('requester_name', item.get('requester_username', '未知申请人'))} "
+        f"{item.get('start_dt'):%Y-%m-%d %H:%M} "
+        f"{item.get('purpose', '')} "
+        f"[{item.get('status', '')}] "
+        f"({item['id'][-6:]})": item
+        for item in rows
+    }
+    delete_label = st.selectbox("选择要删除的预约记录", list(delete_options.keys()), key="delete_reservation_select")
+    delete_target = delete_options[delete_label]
+    st.warning("删除后，该预约将不再参与开放记录导出、利用率统计和个人预约记录展示。")
+    confirm_delete = st.checkbox(
+        f"确认删除该预约记录：{delete_label}",
+        key=f"confirm_delete_reservation_{delete_target['id']}",
+    )
+    if st.button("删除预约记录", type="primary", use_container_width=True, disabled=not confirm_delete):
+        result = store.reservations().delete_one({"_id": object_id(delete_target["id"])})
+        if result.deleted_count:
+            st.success("预约记录已删除。")
+            rerun()
+        else:
+            st.error("删除失败：未找到该预约记录。")
+
 
 def lab_admin_view(store: MongoStore) -> None:
     st.subheader("实验室管理")
